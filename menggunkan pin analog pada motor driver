@@ -1,0 +1,236 @@
+#include <PS2X_lib.h> //Deklarasikan file library PS2X
+#include <Servo.h> //Deklarasikan perpustakaan servo
+
+PS2X ps2x; // Tentukan ps2x sebagai variabel kelas PS2X
+int PS_LX; //Menyimpan data sumbu X dari joystick kiri pegangan PS2
+int PS_RY; //Menyimpan data sumbu Y dari joystick kanan pegangan PS2
+int flag; //Menyimpan ID tombol pegangan PS2
+
+const int servoMax=175; //Tentukan sudut maksimum servo
+const int servoMin=5; //Tentukan sudut minimum servo
+const int servoAngle=5; //Menentukan kenaikan dan penurunan sudut servo setiap kali
+const int motorThreshold=120; //Menentukan nilai PWM minimum dari motor roda gigi DC (untuk mencegah motor mengeluarkan suara frekuensi tinggi)
+const int motorMax=255; //Tentukan nilai PWM maksimum dari motor roda gigi DC
+
+#define motorIn1 17 //IN1 (yaitu pin analog 3)
+#define motorIn2 16 //IN2 (yaitu pin analog 2)
+#define motorEnA 5 //ENA
+#define motorIn3 15 //IN3 (yaitu pin analog 1)
+#define motorIn4 14 //IN4 (yaitu pin analog pin0)
+#define motorEnB 6 //ENB
+
+Servo myservoA; // Buat objek servo untuk myservoA
+Servo myservoB; // Buat objek servo untuk myservoB
+Servo myservoC; // Buat objek servo untuk myservoC
+Servo myservoD; // Buat objek servo untuk myservoD
+
+int pwValue,drValue;
+int valA=90,valB=90,valC=90,valD=90; //Mengatur sudut awal setiap servo
+
+//inisialisasi
+void setup()
+{
+ myservoA.attach(3); //Set myservoA untuk terhubung ke pin3
+ myservoA.write(valA); //myservoA mengeksekusi sudut awal
+ myservoB.attach(4); //Set myservoB untuk terhubung ke pin4
+ myservoB.write(valB); //myservoB mengeksekusi sudut awal  
+ myservoC.attach(7); //Setel myservoC untuk terhubung ke pin7
+ myservoC.write(valC); //myservoC mengeksekusi sudut awal
+ myservoD.attach(8); //Set myservoD untuk terhubung ke pin8
+ myservoD.write(valD); //myservoD mengeksekusi sudut awal  
+ 
+Serial.begin(9600); //Mulai komunikasi serial
+//Inisialisasi antarmuka antara pengontrol PS2 dan Arduino
+//ps2x.config_gamepad(13,11,10,12, true, true); // 13->clock,11->command,10->attention,12->data
+ps2x.config_gamepad(10, 12, 11, 13, true, true);
+}
+
+void loop(){   
+  ps2x.read_gamepad();//Baca data PS2   
+  //Jika Anda menekan tombol hijau "segitiga" PS2, itu ditandai sebagai 'A'
+  if(ps2x.NewButtonState(PSB_GREEN))          
+       { flag='A' ; }   
+  //Jika tombol biru "X" PS2 ditekan, itu ditandai sebagai 'B'
+   else if(ps2x.NewButtonState(PSB_BLUE))      
+        { flag='B' ; }
+   //Jika tombol merah muda "O" PS2 ditekan, itu ditandai sebagai 'C'
+   else if(ps2x.NewButtonState(PSB_PINK))      
+        { flag='C' ; }
+   //Jika tombol merah "[]" PS2 ditekan, itu ditandai sebagai 'D'
+   else if(ps2x.NewButtonState(PSB_RED))      
+        { flag='D' ; }
+   //Jika tombol "atas" PS2 ditekan, itu ditandai sebagai 'E'
+   else if(ps2x.NewButtonState(PSB_PAD_UP))      
+        { flag='E' ; }
+   //Jika tombol "turun" PS2 ditekan, itu ditandai sebagai 'F'
+   else if(ps2x.NewButtonState(PSB_PAD_DOWN))      
+        { flag='F' ; }
+   //Jika tombol "kanan" PS2 ditekan, itu ditandai sebagai 'G'
+   else if(ps2x.NewButtonState(PSB_PAD_RIGHT))      
+       { flag='G' ; }
+   //Jika tombol "kiri" PS2 ditekan, itu ditandai sebagai 'H'
+   else if(ps2x.NewButtonState(PSB_PAD_LEFT))      
+        { flag='H' ; }
+    //Jika tidak ada tombol yang ditekan, itu ditandai sebagai 'X'
+   else
+       { flag='X' ; }
+ 
+    //Baca data sumbu Y dari joystick kanan pegangan PS2 ke dalam variabel PS_RY
+    PS_RY=ps2x.Analog(PSS_RY);
+    
+    //Baca data sumbu X dari joystick kiri pegangan PS2 ke dalam variabel PS_LX
+    PS_LX=ps2x.Analog(PSS_LX);
+   
+      
+  //Kirim metadata operasi pegangan PS2 dari remote control ke ujung penerima mobil
+  Serial.print(flag);
+  Serial.print("/");
+  Serial.print(PS_RY);
+  Serial.print("/");     
+  Serial.println(PS_LX);  
+  delay(100); //Menunggu data dikirim dan diterima
+
+ moveCar(PS_RY,PS_LX); //Jalankan aksi motor DC
+ valueServo(); //Jalankan aksi servo
+}
+
+void valueServo()
+{
+ 
+  if(flag=='A' && valA<(servoMax-servoAngle)) //Saat menerima perintah "A", jika tidak lebih besar dari sudut maksimum servo A, naikkan sudut servo A
+    {
+      valA=valA+servoAngle;
+       myservoA.write(valA); //Tulis sudut aksi servo A
+     }
+  if(flag=='B' && valA>(servoMin+servoAngle)) //Saat menerima perintah "B", jika tidak kurang dari sudut minimum servo A, kurangi sudut servo A
+    {
+     valA=valA-servoAngle;
+      myservoA.write(valA); //Tulis sudut aksi servo A
+    }
+    
+   if(flag=='C' && valB<(servoMax-servoAngle)) //Saat menerima perintah "C", jika tidak lebih besar dari sudut maksimum servo B, naikkan sudut servo B
+    {
+     valB=valB+servoAngle;
+     myservoB.write(valB); //menulis aksi servo B
+    }
+   if(flag=='D' && valB>(servoMin+servoAngle)) //Saat menerima perintah "D", jika tidak kurang dari sudut minimum servo B, kurangi sudut servo B
+    {
+     valB=valB-servoAngle;
+     myservoB.write(valB); //menulis aksi servo C
+     }
+   
+  if(flag=='E' && valC<(servoMax-servoAngle)) //Saat menerima perintah "E", jika tidak lebih besar dari sudut maksimum servo C, naikkan sudut servo C
+    {
+      valC=valC+servoAngle;
+      myservoC.write(valC); //menulis aksi servo C
+    }
+   if(flag=='F' && valC>(servoMin+servoAngle)) //Saat menerima perintah "F", jika tidak kurang dari sudut minimum servo C, kurangi sudut servo C
+     {
+      valC=valC-servoAngle;
+      myservoC.write(valC); //menulis aksi servo C
+    }
+ 
+  if(flag=='G' && valD<(servoMax-servoAngle)) //Saat menerima perintah "G", jika tidak lebih besar dari sudut maksimum servo D, naikkan sudut servo D
+   {
+    valD=valD+servoAngle;
+    myservoD.write(valD); //Tulis sudut aksi servo D
+   }
+  if(flag=='H' && valD>(servoMin+servoAngle)) //Saat menerima perintah "H", jika tidak kurang dari sudut minimum servo D, kurangi sudut servo D
+    {
+     valD=valD-servoAngle;
+     myservoD.write(valD); //Tulis sudut aksi servo D
+    }
+}
+
+void moveCar(int Y, int X)
+{
+// Mengubah nilai pembacaan sumbu Y dari joystick kanan menjadi nilai daya nilai PWM sepeda (0~motorMax) dan maju dan mundur
+//Ketika sumbu Y dari joystick kanan bergerak maju, sepeda bergerak maju, jika tidak, ia bergerak mundur.
+if(Y<117)
+{
+ pwValue=map(Y,117,0,motorThreshold,motorMax);
+}
+  else if(Y>137)
+{
+pwValue=map(Y,137,255,-1*motorThreshold,-1*motorMax);
+}
+else
+{
+pwValue=0;
+}
+
+// Ubah pembacaan sumbu X dari tongkat jarak jauh kiri menjadi perbedaan kecepatan roda kiri dan kanan sepeda  
+if(X>137)
+{
+ drValue=map(X,137,255,0,abs(pwValue));
+}
+ else if(X<117)
+{
+ drValue=map(X,0,117,abs(pwValue)*(-1),0);
+}
+else
+{
+drValue=0;
+}
+
+if(pwValue==0 && drValue==0) //Sepeda berhenti
+ {
+ digitalWrite(motorIn1,LOW);
+  digitalWrite(motorIn2,LOW);
+  digitalWrite(motorIn3,LOW);
+  digitalWrite(motorIn4,LOW);
+ }
+ 
+else if(pwValue>0) //maju
+ {
+ digitalWrite(motorIn1,HIGH);
+  digitalWrite(motorIn2,LOW);
+  digitalWrite(motorIn3,HIGH);
+  digitalWrite(motorIn4,LOW);
+ 
+   if(drValue>0) //Belok kanan
+   {
+     analogWrite(motorEnA,pwValue-drValue);
+     analogWrite(motorEnB,pwValue);
+   }
+   else if(drValue<0) //belok kiri
+   {
+     analogWrite(motorEnA,pwValue);
+     analogWrite(motorEnB,pwValue+drValue);
+   }
+  else if(drValue==0) //Langsung saja
+  {
+     analogWrite(motorEnA,pwValue);
+     analogWrite(motorEnB,pwValue);
+  }
+}
+else if(pwValue<0) //kembali
+ {
+digitalWrite(motorIn1,LOW);
+  digitalWrite(motorIn2,HIGH);
+  digitalWrite(motorIn3,LOW);
+  digitalWrite(motorIn4,HIGH);
+ 
+   if(drValue>0) //Belok kanan
+   {
+     analogWrite(motorEnA,abs(pwValue+drValue));
+     analogWrite(motorEnB,abs(pwValue));
+   }
+   else if(drValue<0) //belok kiri
+   {
+     analogWrite(motorEnA,abs(pwValue));
+     analogWrite(motorEnB,abs(pwValue-drValue));
+   }
+  else if(drValue==0) //Langsung saja
+  {
+     analogWrite(motorEnA,abs(pwValue));
+     analogWrite(motorEnB,abs(pwValue));
+  }
+}
+     {
+     Serial.print("nilaipw = ");   
+     Serial.print(pwValue);
+     Serial.print(";drValue = ");       
+     Serial.println(drValue);
+     }
+}
